@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { chatWithMetaAI, streamMetaAI, ChatMessage } from '@/lib/meta-ai'
 import { PLANS, GUEST_MESSAGES_PER_SESSION } from '@/lib/plans'
+import { executeTools, ToolName } from '@/lib/agent-tools'
 
 // DB is optional — imported lazily so missing DATABASE_URL doesn't crash the module
 async function getDB() {
@@ -17,13 +18,14 @@ async function getDB() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { messages, chatId, guestId, stream: wantStream, systemPrompt, temperature } = body as {
+    const { messages, chatId, guestId, stream: wantStream, systemPrompt, temperature, agentId } = body as {
       messages: ChatMessage[]
       chatId?: string
       guestId?: string
       stream?: boolean
       systemPrompt?: string
       temperature?: number
+      agentId?: string
     }
 
     if (!messages?.length) {
@@ -81,14 +83,32 @@ export async function POST(req: NextRequest) {
     const plan = userId ? PLANS[userPlan as keyof typeof PLANS] ?? PLANS.FREE : PLANS.FREE
     const model = plan.model
 
+    // ── Resolve agent if provided ──────────────────────────────────
+    let agentSystemPrompt: string | undefined
+    let agentTools: ToolName[] = []
+    if (agentId && db) {
+      try {
+        const agent = await db.agent.findUnique({ where: { id: agentId } })
+        if (agent) {
+          agentSystemPrompt = agent.systemPrompt
+          agentTools = JSON.parse(agent.tools ?? '[]') as ToolName[]
+          // Increment usage count
+          await db.agent.update({ where: { id: agentId }, data: { usageCount: { increment: 1 } } })
+        }
+      } catch { /* ignore */ }
+    }
+
     // ── System prompt ──────────────────────────────────────────────
     const defaultSystem = `Tu es NJP CLAW, un assistant IA conversationnel avancé.
 Tu es utile, précis, et tu réponds toujours en français sauf si l'utilisateur demande une autre langue.
 Tu es développé par la plateforme NJP CLAW.`
 
+    const basePrompt = agentSystemPrompt ?? systemPrompt?.trim() ?? defaultSystem
+    const toolContext = executeTools(agentTools)
+
     const systemMsg: ChatMessage = {
       role: 'system',
-      content: systemPrompt?.trim() ? systemPrompt.trim() : defaultSystem,
+      content: basePrompt + toolContext,
     }
 
     const fullMessages: ChatMessage[] = [
@@ -103,7 +123,7 @@ Tu es développé par la plateforme NJP CLAW.`
         if (!activeChatId) {
           const firstContent = messages.find((m) => m.role === 'user')?.content ?? 'Nouvelle conv.'
           const chat = await db.chat.create({
-            data: { userId, model, title: firstContent.slice(0, 60) },
+            data: { userId, model, title: firstContent.slice(0, 60), agentId: agentId ?? null },
           })
           activeChatId = chat.id
         }

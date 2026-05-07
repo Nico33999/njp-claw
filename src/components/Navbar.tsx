@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
-import { Menu, X, Zap, LogOut, LayoutDashboard, ChevronDown, Lightbulb, Code2 } from 'lucide-react'
+import { Menu, X, Zap, LogOut, LayoutDashboard, ChevronDown, Lightbulb, Code2, Cpu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function Navbar() {
@@ -36,6 +36,10 @@ export function Navbar() {
             <Link href="/chat?mode=expert" className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors text-sm font-medium">
               <Code2 className="w-3.5 h-3.5 text-brand-400" />
               Mode Expert
+            </Link>
+            <Link href="/agents" className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors text-sm font-medium">
+              <Cpu className="w-3.5 h-3.5 text-accent-400" />
+              Agents
             </Link>
             <Link href="/pricing" className="text-white/70 hover:text-white transition-colors text-sm font-medium">
               Tarifs
@@ -101,6 +105,9 @@ export function Navbar() {
             </Link>
             <Link href="/chat?mode=expert" onClick={() => setOpen(false)} className="text-white/80 hover:text-white py-2 text-sm font-medium flex items-center gap-2">
               <Code2 className="w-4 h-4 text-brand-400" /> Mode Expert
+            </Link>
+            <Link href="/agents" onClick={() => setOpen(false)} className="text-white/80 hover:text-white py-2 text-sm font-medium flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-accent-400" /> Agents
             </Link>
             <Link href="/pricing" onClick={() => setOpen(false)} className="text-white/80 hover:text-white py-2 text-sm font-medium">
               Tarifs

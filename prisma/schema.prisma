@@ -26,6 +26,7 @@ model User {
   accounts  Account[]
   sessions  Session[]
   chats     Chat[]
+  agents    Agent[]
 }
 
 model Account {
@@ -64,16 +65,38 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model Agent {
+  id           String   @id @default(cuid())
+  name         String
+  description  String
+  emoji        String   @default("🤖")
+  color        String   @default("from-brand-600 to-accent-500")
+  systemPrompt String
+  tools        String   @default("[]")
+  category     String   @default("Général")
+  isPublic     Boolean  @default(false)
+  isSystem     Boolean  @default(false)
+  usageCount   Int      @default(0)
+  userId       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chats Chat[]
+}
+
 model Chat {
   id        String    @id @default(cuid())
   title     String    @default("Nouvelle conversation")
   userId    String?
   guestId   String?
+  agentId   String?
   model     String    @default("meta-llama/Llama-3.1-8B-Instruct")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   user     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent    Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
   messages Message[]
 }
 

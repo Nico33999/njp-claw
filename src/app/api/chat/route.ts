@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { chatWithMetaAI, streamMetaAI, ChatMessage } from '@/lib/meta-ai'
 import { PLANS, GUEST_MESSAGES_PER_SESSION } from '@/lib/plans'
+
+// DB is optional — imported lazily so missing DATABASE_URL doesn't crash the module
+async function getDB() {
+  try {
+    const { prisma } = await import('@/lib/prisma')
+    return prisma
+  } catch {
+    return null
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,45 +28,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Messages requis' }, { status: 400 })
     }
 
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions).catch(() => null)
     const userId = (session?.user as any)?.id as string | undefined
     const userPlan = ((session?.user as any)?.plan as string) ?? 'FREE'
 
-    // ── Rate limiting ──────────────────────────────────────────────
-    if (userId) {
-      const user = await prisma.user.findUnique({ where: { id: userId } })
-      if (!user) return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
+    const db = await getDB()
 
-      const plan = PLANS[user.plan as keyof typeof PLANS]
-      if (plan.messagesPerDay !== -1 && user.messagesUsed >= plan.messagesPerDay) {
-        return NextResponse.json(
-          {
-            error: 'Limite de messages atteinte',
-            upgrade: true,
-            limit: plan.messagesPerDay,
-          },
-          { status: 429 }
-        )
+    // ── Rate limiting ──────────────────────────────────────────────
+    if (userId && db) {
+      try {
+        const user = await db.user.findUnique({ where: { id: userId } })
+        if (user) {
+          const plan = PLANS[user.plan as keyof typeof PLANS]
+          if (plan && plan.messagesPerDay !== -1 && user.messagesUsed >= plan.messagesPerDay) {
+            return NextResponse.json(
+              { error: 'Limite de messages atteinte', upgrade: true, limit: plan.messagesPerDay },
+              { status: 429 }
+            )
+          }
+        }
+      } catch {
+        // DB unavailable — continue without rate limiting
       }
-    } else {
-      // Guest session
-      if (!guestId) {
-        return NextResponse.json({ error: 'Session invité requise' }, { status: 400 })
-      }
-      let guest = await prisma.guestSession.findUnique({ where: { guestId } })
-      if (!guest) {
-        guest = await prisma.guestSession.create({ data: { guestId } })
-      }
-      if (guest.messagesUsed >= GUEST_MESSAGES_PER_SESSION) {
-        return NextResponse.json(
-          {
-            error: `Limite de ${GUEST_MESSAGES_PER_SESSION} messages atteinte pour les invités`,
-            upgrade: true,
-            register: true,
-            limit: GUEST_MESSAGES_PER_SESSION,
-          },
-          { status: 429 }
-        )
+    } else if (!userId) {
+      // Guest: check session limit via DB (graceful degradation if DB unavailable)
+      if (guestId && db) {
+        try {
+          let guest = await db.guestSession.findUnique({ where: { guestId } })
+          if (!guest) {
+            guest = await db.guestSession.create({ data: { guestId } })
+          }
+          if (guest.messagesUsed >= GUEST_MESSAGES_PER_SESSION) {
+            return NextResponse.json(
+              {
+                error: `Limite de ${GUEST_MESSAGES_PER_SESSION} messages atteinte`,
+                upgrade: true,
+                register: true,
+                limit: GUEST_MESSAGES_PER_SESSION,
+              },
+              { status: 429 }
+            )
+          }
+        } catch {
+          // DB unavailable — allow guest without tracking
+        }
       }
     }
 
@@ -65,7 +79,7 @@ export async function POST(req: NextRequest) {
     const plan = userId ? PLANS[userPlan as keyof typeof PLANS] ?? PLANS.FREE : PLANS.FREE
     const model = plan.model
 
-    // ── Add system prompt ──────────────────────────────────────────
+    // ── System prompt ──────────────────────────────────────────────
     const systemMsg: ChatMessage = {
       role: 'system',
       content: `Tu es NJP CLAW, un assistant IA conversationnel avancé propulsé par Meta AI (${plan.modelLabel ?? 'Llama 3.1'}).
@@ -78,25 +92,25 @@ Tu es développé par la plateforme NJP CLAW.`,
       ...messages.filter((m) => m.role !== 'system'),
     ]
 
-    // ── Save to DB (chat + user message) ──────────────────────────
+    // ── Save user message to DB ────────────────────────────────────
     let activeChatId = chatId
-    if (userId) {
-      if (!activeChatId) {
-        const firstContent = messages.find((m) => m.role === 'user')?.content ?? 'Nouvelle conv.'
-        const chat = await prisma.chat.create({
-          data: {
-            userId,
-            model,
-            title: firstContent.slice(0, 60),
-          },
-        })
-        activeChatId = chat.id
-      }
-      const lastUser = [...messages].reverse().find((m) => m.role === 'user')
-      if (lastUser) {
-        await prisma.message.create({
-          data: { chatId: activeChatId!, role: 'user', content: lastUser.content },
-        })
+    if (userId && db) {
+      try {
+        if (!activeChatId) {
+          const firstContent = messages.find((m) => m.role === 'user')?.content ?? 'Nouvelle conv.'
+          const chat = await db.chat.create({
+            data: { userId, model, title: firstContent.slice(0, 60) },
+          })
+          activeChatId = chat.id
+        }
+        const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+        if (lastUser && activeChatId) {
+          await db.message.create({
+            data: { chatId: activeChatId, role: 'user', content: lastUser.content },
+          })
+        }
+      } catch {
+        // DB unavailable
       }
     }
 
@@ -112,31 +126,32 @@ Tu es développé par la plateforme NJP CLAW.`,
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk })}\n\n`))
             }
 
-            // Save assistant message + increment counter
-            if (userId && activeChatId) {
-              await prisma.message.create({
-                data: { chatId: activeChatId, role: 'assistant', content: fullResponse },
-              })
-              await prisma.user.update({
-                where: { id: userId },
-                data: { messagesUsed: { increment: 1 } },
-              })
-            } else if (guestId) {
-              await prisma.guestSession.update({
-                where: { guestId },
-                data: { messagesUsed: { increment: 1 }, lastSeen: new Date() },
-              })
+            if (userId && activeChatId && db) {
+              try {
+                await db.message.create({
+                  data: { chatId: activeChatId, role: 'assistant', content: fullResponse },
+                })
+                await db.user.update({
+                  where: { id: userId },
+                  data: { messagesUsed: { increment: 1 } },
+                })
+              } catch { /* DB unavailable */ }
+            } else if (guestId && db) {
+              try {
+                await db.guestSession.update({
+                  where: { guestId },
+                  data: { messagesUsed: { increment: 1 }, lastSeen: new Date() },
+                })
+              } catch { /* DB unavailable */ }
             }
 
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ done: true, chatId: activeChatId })}\n\n`)
             )
             controller.close()
-          } catch (err) {
+          } catch (err: any) {
             controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ error: 'Erreur lors de la génération' })}\n\n`
-              )
+              encoder.encode(`data: ${JSON.stringify({ error: err.message ?? 'Erreur IA' })}\n\n`)
             )
             controller.close()
           }
@@ -152,27 +167,32 @@ Tu es développé par la plateforme NJP CLAW.`,
       })
     }
 
-    // ── Non-streaming response ─────────────────────────────────────
+    // ── Non-streaming ──────────────────────────────────────────────
     const response = await chatWithMetaAI(fullMessages, model)
 
-    if (userId && activeChatId) {
-      await prisma.message.create({
-        data: { chatId: activeChatId, role: 'assistant', content: response },
-      })
-      await prisma.user.update({
-        where: { id: userId },
-        data: { messagesUsed: { increment: 1 } },
-      })
-    } else if (guestId) {
-      await prisma.guestSession.update({
-        where: { guestId },
-        data: { messagesUsed: { increment: 1 }, lastSeen: new Date() },
-      })
+    if (userId && activeChatId && db) {
+      try {
+        await db.message.create({
+          data: { chatId: activeChatId, role: 'assistant', content: response },
+        })
+        await db.user.update({
+          where: { id: userId },
+          data: { messagesUsed: { increment: 1 } },
+        })
+      } catch { /* DB unavailable */ }
+    } else if (guestId && db) {
+      try {
+        await db.guestSession.update({
+          where: { guestId },
+          data: { messagesUsed: { increment: 1 }, lastSeen: new Date() },
+        })
+      } catch { /* DB unavailable */ }
     }
 
     return NextResponse.json({ message: response, chatId: activeChatId })
   } catch (err: any) {
     console.error('[CHAT API]', err)
-    return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })
+    const msg = err?.message ?? 'Erreur interne du serveur'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

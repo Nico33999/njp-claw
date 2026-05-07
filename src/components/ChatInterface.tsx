@@ -172,11 +172,14 @@ export function ChatInterface({ initialChatId }: ChatInterfaceProps) {
           setGuestMessagesLeft(Math.max(0, GUEST_LIMIT - used))
         }
       } catch (err: any) {
+        const isConfigError = err.message?.includes('GROQ_API_KEY') || err.message?.includes('clé API')
         setMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
-            content: `Désolé, une erreur est survenue: ${err.message}. Veuillez réessayer.`,
+            content: isConfigError
+              ? `**Configuration requise**\n\n${err.message}\n\nContactez l'administrateur de la plateforme.`
+              : `Désolé, une erreur est survenue : ${err.message}. Veuillez réessayer.`,
             id: crypto.randomUUID(),
           },
         ])

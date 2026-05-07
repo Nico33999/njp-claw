@@ -1,0 +1,242 @@
+'use client'
+import { useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { Navbar } from '@/components/Navbar'
+import { CheckCircle, X, Zap, Star, Crown, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
+
+const plans = [
+  {
+    key: 'FREE',
+    name: 'Gratuit',
+    price: 0,
+    period: '',
+    icon: <Zap className="w-5 h-5" />,
+    color: 'from-emerald-600 to-teal-600',
+    badge: 'badge-free',
+    badgeText: 'GRATUIT',
+    model: 'Llama 3.1 8B',
+    description: 'Parfait pour découvrir NJP CLAW sans engagement.',
+    features: [
+      { text: '5 messages/session (sans compte)', included: true },
+      { text: '20 messages/jour (avec compte gratuit)', included: true },
+      { text: 'Modèle Llama 3.1 8B', included: true },
+      { text: 'Interface chat complète', included: true },
+      { text: 'Historique persistant', included: false },
+      { text: 'Export des conversations', included: false },
+      { text: 'Modèle 70B / 405B', included: false },
+      { text: 'Support prioritaire', included: false },
+    ],
+    cta: 'Commencer gratuitement',
+    ctaLink: '/chat',
+    highlight: false,
+  },
+  {
+    key: 'PRO',
+    name: 'Pro',
+    price: 9.99,
+    period: '/mois',
+    icon: <Star className="w-5 h-5" />,
+    color: 'from-brand-600 to-blue-600',
+    badge: 'badge-pro',
+    badgeText: 'PRO',
+    model: 'Llama 3.1 70B',
+    description: 'Pour les utilisateurs réguliers qui veulent plus de puissance.',
+    features: [
+      { text: '500 messages/jour', included: true },
+      { text: 'Modèle Llama 3.1 70B (8.6× plus puissant)', included: true },
+      { text: 'Historique illimité', included: true },
+      { text: 'Export des conversations (Markdown, JSON)', included: true },
+      { text: 'Priorité de traitement', included: true },
+      { text: 'Support email sous 24h', included: true },
+      { text: 'Modèle 405B', included: false },
+      { text: 'Accès API personnel', included: false },
+    ],
+    cta: 'Choisir Pro',
+    ctaLink: null,
+    highlight: true,
+  },
+  {
+    key: 'ULTIMATE',
+    name: 'Ultimate',
+    price: 29.99,
+    period: '/mois',
+    icon: <Crown className="w-5 h-5" />,
+    color: 'from-amber-500 to-orange-600',
+    badge: 'badge-ultimate',
+    badgeText: 'ULTIMATE',
+    model: 'Llama 3.1 405B',
+    description: 'Pour les professionnels et équipes qui ont besoin du meilleur.',
+    features: [
+      { text: 'Messages illimités', included: true },
+      { text: 'Modèle Llama 3.1 405B (le plus puissant)', included: true },
+      { text: 'Historique illimité', included: true },
+      { text: 'Export multi-format', included: true },
+      { text: 'Traitement ultra-prioritaire', included: true },
+      { text: 'Support 24/7 prioritaire', included: true },
+      { text: 'Accès API personnel', included: true },
+      { text: 'Nouvelles fonctionnalités en avant-première', included: true },
+    ],
+    cta: 'Choisir Ultimate',
+    ctaLink: null,
+    highlight: false,
+  },
+]
+
+export default function PricingPage() {
+  const { data: session } = useSession()
+  const [loading, setLoading] = useState<string | null>(null)
+
+  const handleUpgrade = async (planKey: string) => {
+    if (!session) {
+      window.location.href = `/login?redirect=/pricing`
+      return
+    }
+    setLoading(planKey)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: planKey }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } catch {
+      alert('Erreur lors de la redirection vers le paiement.')
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0e1128]">
+      <Navbar />
+
+      <section className="pt-28 pb-20 px-4">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 glass px-4 py-2 rounded-full text-sm text-white/60 mb-6 border border-white/10">
+              <Zap className="w-4 h-4 text-accent-400" />
+              Choisissez votre puissance
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              Tarifs <span className="gradient-text">simples et transparents</span>
+            </h1>
+            <p className="text-white/50 text-lg max-w-xl mx-auto">
+              Commencez gratuitement. Évoluez quand vous êtes prêt. Annulez à tout moment.
+            </p>
+          </div>
+
+          {/* Plans grid */}
+          <div className="grid lg:grid-cols-3 gap-8 items-start">
+            {plans.map((plan) => (
+              <div
+                key={plan.key}
+                className={`relative card flex flex-col gap-6 ${
+                  plan.highlight
+                    ? 'border-brand-500/40 glow-brand scale-[1.02] bg-white/10'
+                    : 'border-white/10'
+                }`}
+              >
+                {plan.highlight && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg">
+                    LE PLUS POPULAIRE
+                  </div>
+                )}
+
+                {/* Plan header */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${plan.color} flex items-center justify-center text-white`}>
+                        {plan.icon}
+                      </div>
+                      <span className="font-bold text-white text-lg">{plan.name}</span>
+                    </div>
+                    <span className={plan.badge}>{plan.badgeText}</span>
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div>
+                  <div className="flex items-end gap-1">
+                    <span className="text-4xl font-black text-white">
+                      {plan.price === 0 ? 'Gratuit' : `${plan.price}€`}
+                    </span>
+                    {plan.period && <span className="text-white/40 mb-1">{plan.period}</span>}
+                  </div>
+                  <p className="text-xs text-white/40 mt-1">Modèle : {plan.model}</p>
+                  <p className="text-sm text-white/50 mt-2">{plan.description}</p>
+                </div>
+
+                {/* Features */}
+                <ul className="space-y-3 flex-1">
+                  {plan.features.map((f) => (
+                    <li key={f.text} className="flex items-start gap-2.5">
+                      {f.included ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <X className="w-4 h-4 text-white/20 flex-shrink-0 mt-0.5" />
+                      )}
+                      <span className={`text-sm ${f.included ? 'text-white/80' : 'text-white/30'}`}>
+                        {f.text}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* CTA */}
+                {plan.ctaLink ? (
+                  <Link href={plan.ctaLink} className="btn-secondary text-sm text-center">
+                    {plan.cta}
+                    <ArrowRight className="w-4 h-4 inline ml-1" />
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => handleUpgrade(plan.key)}
+                    disabled={loading === plan.key}
+                    className={plan.highlight ? 'btn-primary text-sm' : 'btn-secondary text-sm'}
+                  >
+                    {loading === plan.key ? 'Redirection...' : plan.cta}
+                    <ArrowRight className="w-4 h-4 inline ml-1" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* FAQ */}
+          <div className="mt-20 max-w-3xl mx-auto">
+            <h2 className="text-2xl font-bold text-white text-center mb-10">Questions fréquentes</h2>
+            <div className="space-y-4">
+              {[
+                {
+                  q: "Puis-je vraiment utiliser NJP CLAW sans compte ?",
+                  a: "Oui ! Vous avez accès à 5 messages par session sans aucune inscription. Créez un compte gratuit pour 20 messages/jour persistants."
+                },
+                {
+                  q: "Quelle est la différence entre les modèles Llama 3.1 ?",
+                  a: "Le 8B est rapide et efficace pour les tâches courantes. Le 70B offre un raisonnement bien meilleur et des réponses plus nuancées. Le 405B est le plus puissant disponible, idéal pour les tâches complexes, la recherche et l'analyse avancée."
+                },
+                {
+                  q: "Puis-je annuler à tout moment ?",
+                  a: "Absolument. Aucun engagement, annulation en un clic depuis votre dashboard. Vous continuez à bénéficier de votre plan jusqu'à la fin de la période payée."
+                },
+                {
+                  q: "Mes données sont-elles sécurisées ?",
+                  a: "Vos conversations sont chiffrées en transit. Nous ne revendons pas vos données et ne les utilisons pas pour entraîner des modèles."
+                },
+              ].map((item) => (
+                <div key={item.q} className="card">
+                  <h3 className="font-semibold text-white mb-2">{item.q}</h3>
+                  <p className="text-sm text-white/60 leading-relaxed">{item.a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}

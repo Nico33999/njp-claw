@@ -17,11 +17,13 @@ async function getDB() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { messages, chatId, guestId, stream: wantStream } = body as {
+    const { messages, chatId, guestId, stream: wantStream, systemPrompt, temperature } = body as {
       messages: ChatMessage[]
       chatId?: string
       guestId?: string
       stream?: boolean
+      systemPrompt?: string
+      temperature?: number
     }
 
     if (!messages?.length) {
@@ -80,11 +82,13 @@ export async function POST(req: NextRequest) {
     const model = plan.model
 
     // ── System prompt ──────────────────────────────────────────────
+    const defaultSystem = `Tu es NJP CLAW, un assistant IA conversationnel avancé.
+Tu es utile, précis, et tu réponds toujours en français sauf si l'utilisateur demande une autre langue.
+Tu es développé par la plateforme NJP CLAW.`
+
     const systemMsg: ChatMessage = {
       role: 'system',
-      content: `Tu es NJP CLAW, un assistant IA conversationnel avancé propulsé par Meta AI (${plan.modelLabel ?? 'Llama 3.1'}).
-Tu es utile, précis, et tu réponds toujours en français sauf si l'utilisateur demande une autre langue.
-Tu es développé par la plateforme NJP CLAW.`,
+      content: systemPrompt?.trim() ? systemPrompt.trim() : defaultSystem,
     }
 
     const fullMessages: ChatMessage[] = [

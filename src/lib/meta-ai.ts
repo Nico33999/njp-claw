@@ -9,7 +9,8 @@ const GROQ_MODELS: Record<string, string> = {
 
 export async function chatWithMetaAI(
   messages: ChatMessage[],
-  model = 'meta-llama/Llama-3.1-8B-Instruct'
+  model = 'meta-llama/Llama-3.1-8B-Instruct',
+  temperature = 0.7
 ): Promise<string> {
   // Determine which plan tier from the model string
   const planKey = model.includes('405B') ? 'ULTIMATE' : model.includes('70B') ? 'PRO' : 'FREE'
@@ -31,7 +32,7 @@ export async function chatWithMetaAI(
           model: groqModel,
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           max_tokens: 2048,
-          temperature: 0.7,
+          temperature,
         }),
         signal: AbortSignal.timeout(30000),
       })
@@ -61,7 +62,7 @@ export async function chatWithMetaAI(
           model,
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           max_tokens: 2048,
-          temperature: 0.7,
+          temperature,
         }),
         signal: AbortSignal.timeout(30000),
       })

@@ -1,24 +1,23 @@
-// In the useEffect that extracts preview code, improve it:
+// Add import
+// import { FlootMode } from './FlootMode';
 
-useEffect(() => {
-  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant')
-  if (lastAssistant?.content) {
-    // Better regex for code blocks
-    const codeMatch = lastAssistant.content.match(/```(html|jsx|tsx|javascript|js)?\s*\n?([\s\S]*?)```/i)
-    
-    if (codeMatch) {
-      const lang = (codeMatch[1] || 'html').toLowerCase()
-      const extractedCode = codeMatch[2].trim()
-      
-      setPreviewCode(extractedCode)
-      setPreviewLang(lang === 'javascript' || lang === 'js' ? 'html' : lang)
-      
-      // Auto-show preview when code is detected
-      if (!showPreview) {
-        setShowPreview(true)
-      }
-    }
-  }
-}, [messages])
+// Add state
+// const [flootMode, setFlootMode] = useState<string | null>(null);
 
-// Also improve the top bar to always show the preview toggle when in builder mode or when previewCode exists
+// In the UI, you can show <FlootMode onActivate={setFlootMode} /> when user clicks a button
+
+// When flootMode is active, append to system prompt:
+// if (flootMode === 'plan-build') {
+//   system += '\n\nMODE FLOOT PLAN+BUILD: Commence toujours par un plan étape par étape clair, puis construis itérativement. Montre le plan avant le code.';
+// }
+// if (flootMode === 'auto-fix') {
+//   system += '\n\nMODE AUTO-FIX: Après chaque génération, analyse le code pour les bugs et propose des corrections.';
+// }
+// if (flootMode === 'fullstack') {
+//   system += '\n\nMODE FULL-STACK: Génère toujours le schéma Prisma + routes API + authentification NextAuth.';
+// }
+// if (flootMode === 'seo') {
+//   system += '\n\nMODE SEO: Ajoute meta tags, sitemap.xml, robots.txt et structured data.';
+// }
+
+// Also add a "Fix this bug" button next to the preview that sends the current code back to AI with "Fix and improve this code".

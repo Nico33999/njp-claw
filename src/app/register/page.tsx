@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Bot, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, Loader2, CheckCircle, ArrowRight } from 'lucide-react'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -16,10 +16,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.')
-      return
-    }
+    if (password.length < 6) { setError('Le mot de passe doit contenir au moins 6 caractères.'); return }
     setLoading(true)
     setError('')
 
@@ -36,50 +33,42 @@ export default function RegisterPage() {
       return
     }
 
-    // Auto sign in
     const signInRes = await signIn('credentials', { email, password, redirect: false })
     setLoading(false)
-
-    if (signInRes?.error) {
-      router.push('/login')
-    } else {
-      router.push('/chat')
-    }
+    if (signInRes?.error) router.push('/login')
+    else router.push('/chat')
   }
 
   const perks = [
     '20 messages/jour gratuits',
     'Historique de conversations',
-    'Accès sans pub',
+    'Modes Novice, Expert & Builder',
     'Mise à niveau vers Pro/Ultimate',
   ]
 
   return (
-    <div className="min-h-screen bg-[#0e1128] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-4xl grid md:grid-cols-2 gap-8 items-center">
-        {/* Left side */}
+    <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-4xl grid md:grid-cols-2 gap-10 items-center">
+
+        {/* Left */}
         <div className="hidden md:block">
           <Link href="/" className="inline-flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center shadow-lg">
-              <span className="text-white font-black">NJP</span>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-brand-500 flex items-center justify-center shadow-sm">
+              <span className="text-white font-black text-xs">N</span>
             </div>
-            <span className="font-bold text-xl text-white">NJP <span className="gradient-text">CLAW</span></span>
+            <span className="font-bold text-xl text-zinc-900">NJP <span className="gradient-text">CLAW</span></span>
           </Link>
-
-          <h1 className="text-3xl font-black text-white mb-4">
-            Rejoignez NJP CLAW
-            <br />
+          <h1 className="text-3xl font-black text-zinc-900 mb-4">
+            Rejoignez NJP CLAW<br />
             <span className="gradient-text">C'est gratuit !</span>
           </h1>
-
-          <p className="text-white/50 mb-8 leading-relaxed">
-            Créez votre compte en 30 secondes et accédez à Meta AI avec 20 messages par jour, sans aucune limite de durée.
+          <p className="text-zinc-500 mb-8 leading-relaxed">
+            Créez votre compte en 30 secondes et accédez à l'IA avec 20 messages par jour, sans aucune limite de durée.
           </p>
-
           <ul className="space-y-3">
             {perks.map((p) => (
-              <li key={p} className="flex items-center gap-3 text-white/70">
-                <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <li key={p} className="flex items-center gap-3 text-zinc-700">
+                <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                 {p}
               </li>
             ))}
@@ -90,82 +79,59 @@ export default function RegisterPage() {
         <div>
           <div className="text-center mb-6 md:hidden">
             <Link href="/" className="inline-flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center">
-                <span className="text-white font-black text-xs">NJP</span>
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-600 to-brand-500 flex items-center justify-center">
+                <span className="text-white font-black text-xs">N</span>
               </div>
-              <span className="font-bold text-white">NJP <span className="gradient-text">CLAW</span></span>
+              <span className="font-bold text-zinc-900">NJP <span className="gradient-text">CLAW</span></span>
             </Link>
-            <h1 className="text-xl font-bold text-white">Créer un compte</h1>
+            <h1 className="text-xl font-bold text-zinc-900">Créer un compte</h1>
           </div>
 
-          <div className="glass-strong rounded-2xl p-8 border border-white/10">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-7 shadow-sm">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400 mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600 mb-5">
                 {error}
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm text-white/60 mb-1.5">Nom (optionnel)</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Jean Dupont"
-                  className="input-field"
-                />
+                <label className="block text-sm text-zinc-700 font-medium mb-1.5">Nom (optionnel)</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                  placeholder="Jean Dupont" className="input-field" />
               </div>
-
               <div>
-                <label className="block text-sm text-white/60 mb-1.5">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="vous@exemple.com"
-                  className="input-field"
-                />
+                <label className="block text-sm text-zinc-700 font-medium mb-1.5">Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  required placeholder="vous@exemple.com" className="input-field" />
               </div>
-
               <div>
-                <label className="block text-sm text-white/60 mb-1.5">Mot de passe</label>
+                <label className="block text-sm text-zinc-700 font-medium mb-1.5">Mot de passe</label>
                 <div className="relative">
-                  <input
-                    type={showPass ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    placeholder="Minimum 6 caractères"
-                    className="input-field pr-12"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
-                  >
+                  <input type={showPass ? 'text' : 'password'} value={password}
+                    onChange={(e) => setPassword(e.target.value)} required minLength={6}
+                    placeholder="Minimum 6 caractères" className="input-field pr-12" />
+                  <button type="button" onClick={() => setShowPass(!showPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 mt-6">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-                {loading ? 'Création en cours...' : 'Créer mon compte gratuit'}
+              <button type="submit" disabled={loading} className="btn-primary w-full mt-6">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                {loading ? 'Création en cours…' : 'Créer mon compte gratuit'}
               </button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-white/40">
+            <p className="mt-5 text-center text-sm text-zinc-500">
               Déjà un compte ?{' '}
-              <Link href="/login" className="text-brand-400 hover:text-brand-300 font-medium">
+              <Link href="/login" className="text-brand-600 hover:text-brand-700 font-medium">
                 Se connecter
               </Link>
-            </div>
-
-            <div className="mt-4 text-center">
-              <Link href="/chat" className="text-xs text-white/30 hover:text-white/50">
+            </p>
+            <div className="mt-3 text-center">
+              <Link href="/chat" className="text-xs text-zinc-400 hover:text-zinc-600">
                 Continuer sans compte →
               </Link>
             </div>

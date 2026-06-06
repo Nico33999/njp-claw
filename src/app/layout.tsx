@@ -3,20 +3,20 @@ import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
 
 export const metadata: Metadata = {
-  title: 'NJP CLAW — IA Conversationnelle Propulsée par Meta AI',
-  description: 'Accédez à Meta AI gratuitement, sans inscription. Passez à Pro ou Ultimate pour débloquer des modèles plus puissants et des capacités illimitées.',
-  keywords: ['NJP CLAW', 'Meta AI', 'Llama', 'IA', 'chatbot', 'intelligence artificielle'],
+  title: 'NJP CLAW — Assistant IA & Builder de sites',
+  description: 'Posez n\'importe quelle question, créez des sites web en direct, construisez des applications — sans inscription, gratuitement.',
+  keywords: ['NJP CLAW', 'IA', 'chatbot', 'builder', 'site web', 'intelligence artificielle'],
   openGraph: {
     title: 'NJP CLAW',
-    description: 'IA Conversationnelle Propulsée par Meta AI',
+    description: 'Assistant IA & Builder de sites en direct',
     type: 'website',
   },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className="dark">
-      <body className="antialiased min-h-screen bg-[#0e1128]">
+    <html lang="fr">
+      <body className="antialiased min-h-screen bg-zinc-50">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

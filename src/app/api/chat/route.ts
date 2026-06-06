@@ -18,7 +18,7 @@ async function getDB() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { messages, chatId, guestId, stream: wantStream, systemPrompt, temperature, agentId } = body as {
+    const { messages, chatId, guestId, stream: wantStream, systemPrompt, temperature, agentId, mode } = body as {
       messages: ChatMessage[]
       chatId?: string
       guestId?: string
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       systemPrompt?: string
       temperature?: number
       agentId?: string
+      mode?: 'novice' | 'expert' | 'builder'
     }
 
     if (!messages?.length) {
@@ -103,7 +104,36 @@ export async function POST(req: NextRequest) {
 Tu es utile, précis, et tu réponds toujours en français sauf si l'utilisateur demande une autre langue.
 Tu es développé par la plateforme NJP CLAW.`
 
-    const basePrompt = agentSystemPrompt ?? systemPrompt?.trim() ?? defaultSystem
+    const builderSystem = `Tu es NJP Builder, l'IA qui crée des sites web, interfaces et applications immédiatement.
+
+RÈGLES ABSOLUES — NE JAMAIS DÉROGER :
+1. Quand l'utilisateur demande de créer un site, une page, une interface, un composant ou une application : génère IMMÉDIATEMENT le code complet dans un bloc \`\`\`html.
+2. NE JAMAIS décrire, expliquer ou planifier avant de coder. TOUJOURS coder en PREMIER.
+3. Le bloc \`\`\`html doit contenir un document HTML COMPLET et autonome (avec DOCTYPE, <html>, <head>, <body>).
+4. Utilise OBLIGATOIREMENT Tailwind CSS via CDN : <script src="https://cdn.tailwindcss.com"></script>
+5. Le code doit être beau, moderne, professionnel et responsive immédiatement.
+6. Pour les modifications : génère TOUJOURS le code complet modifié, jamais juste les changements.
+7. Après le code, tu peux ajouter 1-2 lignes de description des fonctionnalités.
+8. Tu réponds en français.
+
+EXEMPLE DE STRUCTURE :
+\`\`\`html
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+<title>Mon Site</title>
+</head>
+<body class="...">
+  <!-- contenu ici -->
+</body>
+</html>
+\`\`\``
+
+    const basePrompt = agentSystemPrompt
+      ?? (mode === 'builder' ? builderSystem : systemPrompt?.trim() ?? defaultSystem)
     const toolContext = executeTools(agentTools)
 
     const systemMsg: ChatMessage = {

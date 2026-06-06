@@ -103,77 +103,80 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0e1128]">
+    <div className="min-h-screen bg-white">
       <Navbar />
 
       <section className="pt-28 pb-20 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 glass px-4 py-2 rounded-full text-sm text-white/60 mb-6 border border-white/10">
-              <Zap className="w-4 h-4 text-accent-400" />
+            <div className="inline-flex items-center gap-2 bg-zinc-100 border border-zinc-200 px-4 py-2 rounded-full text-sm text-zinc-500 mb-6">
+              <Zap className="w-4 h-4 text-brand-500" />
               Choisissez votre puissance
             </div>
-            <h1 className="text-4xl sm:text-5xl font-black text-white mb-4">
+            <h1 className="text-4xl sm:text-5xl font-black text-zinc-900 mb-4">
               Tarifs <span className="gradient-text">simples et transparents</span>
             </h1>
-            <p className="text-white/50 text-lg max-w-xl mx-auto">
+            <p className="text-zinc-500 text-lg max-w-xl mx-auto">
               Commencez gratuitement. Évoluez quand vous êtes prêt. Annulez à tout moment.
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8 items-start">
+          <div className="grid lg:grid-cols-3 gap-6 items-start">
             {plans.map((plan) => (
               <div key={plan.key}
-                className={`relative card flex flex-col gap-6 ${plan.highlight ? 'border-brand-500/40 glow-brand scale-[1.02] bg-white/[0.06]' : 'border-white/10'}`}>
+                className={`relative card flex flex-col gap-5 ${plan.highlight ? 'border-brand-300 shadow-lg shadow-brand-500/10 scale-[1.02]' : ''}`}>
                 {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-4 py-1 rounded-full shadow">
                     LE PLUS POPULAIRE
                   </div>
                 )}
 
-                <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center text-white shadow-sm`}>
+                    {plan.icon}
+                  </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${plan.color} flex items-center justify-center text-white`}>
-                        {plan.icon}
-                      </div>
-                      <span className="font-bold text-white text-lg">{plan.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-zinc-900">{plan.name}</span>
+                      <span className={plan.badge}>{plan.badgeText}</span>
                     </div>
-                    <span className={plan.badge}>{plan.badgeText}</span>
+                    <p className="text-xs text-zinc-400">{plan.engine}</p>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-end gap-1">
-                    <span className="text-4xl font-black text-white">
-                      {plan.price === 0 ? 'Gratuit' : `${plan.price}€`}
+                    <span className="text-4xl font-black text-zinc-900">
+                      {(plan as any).price === 0 ? 'Gratuit' : `${plan.price}€`}
                     </span>
-                    {plan.period && <span className="text-white/40 mb-1">{plan.period}</span>}
+                    {plan.period && <span className="text-zinc-400 mb-1">{plan.period}</span>}
                   </div>
-                  <p className="text-xs text-white/40 mt-1">{plan.engine}</p>
-                  <p className="text-sm text-white/50 mt-2">{plan.description}</p>
+                  <p className="text-sm text-zinc-500 mt-2">{plan.description}</p>
                 </div>
 
-                <ul className="space-y-3 flex-1">
+                <ul className="space-y-2.5 flex-1">
                   {plan.features.map((f) => (
                     <li key={f.text} className="flex items-start gap-2.5">
                       {f.included
-                        ? <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                        : <X className="w-4 h-4 text-white/20 flex-shrink-0 mt-0.5" />}
-                      <span className={`text-sm ${f.included ? 'text-white/80' : 'text-white/30'}`}>{f.text}</span>
+                        ? <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                        : <X className="w-4 h-4 text-zinc-300 flex-shrink-0 mt-0.5" />}
+                      <span className={`text-sm ${f.included ? 'text-zinc-700' : 'text-zinc-400'}`}>{f.text}</span>
                     </li>
                   ))}
                 </ul>
 
                 {plan.ctaLink ? (
-                  <Link href={plan.ctaLink} className="btn-secondary text-sm text-center">
-                    {plan.cta} <ArrowRight className="w-4 h-4 inline ml-1" />
+                  <Link href={plan.ctaLink}
+                    className="btn-secondary text-sm text-center flex items-center justify-center gap-2">
+                    {plan.cta} <ArrowRight className="w-4 h-4" />
                   </Link>
                 ) : (
                   <button onClick={() => handleUpgrade(plan.key)} disabled={loading === plan.key}
-                    className={plan.highlight ? 'btn-primary text-sm' : 'btn-secondary text-sm'}>
-                    {loading === plan.key ? 'Redirection...' : plan.cta}
-                    <ArrowRight className="w-4 h-4 inline ml-1" />
+                    className={`flex items-center justify-center gap-2 text-sm py-2.5 px-5 rounded-xl font-semibold transition-all disabled:opacity-60 ${
+                      plan.highlight ? 'btn-primary' : 'btn-secondary'
+                    }`}>
+                    {loading === plan.key ? 'Redirection…' : plan.cta}
+                    {loading !== plan.key && <ArrowRight className="w-4 h-4" />}
                   </button>
                 )}
               </div>
@@ -182,7 +185,7 @@ export default function PricingPage() {
 
           {/* FAQ */}
           <div className="mt-20 max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-white text-center mb-10">Questions fréquentes</h2>
+            <h2 className="text-2xl font-bold text-zinc-900 text-center mb-10">Questions fréquentes</h2>
             <div className="space-y-4">
               {[
                 { q: "Puis-je utiliser NJP CLAW sans compte ?", a: "Oui ! 5 messages par session sans inscription. Créez un compte gratuit pour 20 messages/jour persistants." },
@@ -191,8 +194,8 @@ export default function PricingPage() {
                 { q: "Mes données sont-elles sécurisées ?", a: "Vos conversations sont chiffrées. Nous ne revendons pas vos données et ne les utilisons pas pour entraîner des modèles." },
               ].map((item) => (
                 <div key={item.q} className="card">
-                  <h3 className="font-semibold text-white mb-2">{item.q}</h3>
-                  <p className="text-sm text-white/60 leading-relaxed">{item.a}</p>
+                  <h3 className="font-semibold text-zinc-900 mb-2">{item.q}</h3>
+                  <p className="text-sm text-zinc-500 leading-relaxed">{item.a}</p>
                 </div>
               ))}
             </div>

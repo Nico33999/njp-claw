@@ -80,9 +80,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Determine model ────────────────────────────────────────────
+    // ── Determine plan (for rate limiting) ────────────────────────
     const plan = userId ? PLANS[userPlan as keyof typeof PLANS] ?? PLANS.FREE : PLANS.FREE
-    const model = plan.model
 
     // ── Resolve agent if provided ──────────────────────────────────
     let agentSystemPrompt: string | undefined
@@ -153,7 +152,7 @@ EXEMPLE DE STRUCTURE :
         if (!activeChatId) {
           const firstContent = messages.find((m) => m.role === 'user')?.content ?? 'Nouvelle conv.'
           const chat = await db.chat.create({
-            data: { userId, model, title: firstContent.slice(0, 60), agentId: agentId ?? null },
+            data: { userId, model: plan.model, title: firstContent.slice(0, 60), agentId: agentId ?? null },
           })
           activeChatId = chat.id
         }
@@ -175,7 +174,7 @@ EXEMPLE DE STRUCTURE :
         async start(controller) {
           try {
             let fullResponse = ''
-            for await (const chunk of streamMetaAI(fullMessages, model)) {
+            for await (const chunk of streamMetaAI(fullMessages)) {
               fullResponse += chunk
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk })}\n\n`))
             }
@@ -222,7 +221,7 @@ EXEMPLE DE STRUCTURE :
     }
 
     // ── Non-streaming ──────────────────────────────────────────────
-    const response = await chatWithMetaAI(fullMessages, model)
+    const response = await chatWithMetaAI(fullMessages)
 
     if (userId && activeChatId && db) {
       try {

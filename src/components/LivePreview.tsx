@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Sandpack } from '@codesandbox/sandpack-react';
 
 interface LivePreviewProps {
   code: string;
@@ -9,90 +10,154 @@ interface LivePreviewProps {
 
 export function LivePreview({ code, language = 'html' }: LivePreviewProps) {
   const [previewHtml, setPreviewHtml] = useState('');
+  const [isReact, setIsReact] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!code) {
+    if (!code || code.trim().length === 0) {
       setPreviewHtml('<div class="p-8 text-center text-gray-400">Le preview apparaîtra ici quand l\'IA générera du code...</div>');
+      setIsReact(false);
       return;
     }
 
-    try {
-      if (language === 'html' || code.includes('<html') || code.includes('<!DOCTYPE')) {
-        // Direct HTML preview
-        setPreviewHtml(code);
-      } else if (language === 'jsx' || language === 'tsx' || code.includes('import React') || code.includes('export default')) {
-        // For React code, create a simple HTML wrapper with Tailwind
-        const wrappedHtml = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <script src="https://cdn.tailwindcss.com"></script>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-            <style>
-              body { font-family: system-ui, -apple-system, sans-serif; }
-              .preview-container { max-width: 100%; margin: 0 auto; }
-            </style>
-          </head>
-          <body class="bg-gray-50 p-4">
-            <div class="preview-container">
-              <div id="root"></div>
-            </div>
-            <script>
-              // Simple React-like rendering for demo
-              // In production, use Sandpack or iframe with compiled code
-              const root = document.getElementById('root');
-              root.innerHTML = 
-                <div class="p-8 bg-white rounded-xl shadow-sm border">
-                  <div class="text-center">
-                    <i class="fas fa-code text-4xl text-brand-500 mb-4"></i>
-                    <h3 class="text-xl font-semibold mb-2">Preview React</h3>
-                    <p class="text-gray-500 text-sm mb-4">Le code React est généré. Pour un preview complet, utilisez le mode Export ou intégrez Sandpack.</p>
-                    <pre class="text-left bg-gray-900 text-green-400 p-4 rounded text-xs overflow-auto max-h-96"><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>
-                  </div>
-                </div>
-              `;
-            </script>
-          </body>
-          </html>
-        `;
-        setPreviewHtml(wrappedHtml);
-      } else {
-        // Fallback
-        setPreviewHtml(`<pre class="p-4 bg-gray-900 text-green-400 rounded"><code>${code.replace(/</g, '&lt;')}</code></pre>`);
+    const isReactCode = language === 'jsx' || language === 'tsx' || 
+                        code.includes('import React') || 
+                        code.includes('from "react"') ||
+                        code.includes('export default function') ||
+                        code.includes('const ') && code.includes('= () =>');
+
+    setIsReact(isReactCode);
+
+    if (!isReactCode) {
+      // HTML + Tailwind preview (fast & direct)
+      try {
+        let html = code;
+        
+        // If it's just a component, wrap it in a full HTML page
+        if (!code.includes('<!DOCTYPE') && !code.includes('<html')) {
+          html = `
+            <!DOCTYPE html>
+            <html lang="fr">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <script src="https://cdn.tailwindcss.com"></script>
+              <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+              <style>
+                body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+                .preview-wrapper { max-width: 1200px; margin: 0 auto; }
+              </style>
+            </head>
+            <body class="bg-zinc-950 text-white p-6">
+              <div class="preview-wrapper">
+                ${code}
+              </div>
+              <script>
+                // Tailwind script
+                function initializeTailwind() {
+                  document.documentElement.style.setProperty('--accent', '#3b82f6');
+                }
+                window.onload = initializeTailwind;
+              </script>
+            </body>
+            </html>
+          `;
+        }
+        setPreviewHtml(html);
+        setError('');
+      } catch (e: any) {
+        setError('Erreur preview HTML: ' + e.message);
       }
-      setError('');
-    } catch (e: any) {
-      setError('Erreur lors de la génération du preview: ' + e.message);
-      setPreviewHtml('');
     }
   }, [code, language]);
 
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center bg-red-50 text-red-600 p-4">
-        {error}
+      <div className="h-full flex items-center justify-center bg-red-950/50 text-red-400 p-6 rounded-xl">
+        <div>
+          <p className="font-medium mb-2">Erreur de preview</p>
+          <p className="text-sm opacity-70">{error}</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="h-full w-full bg-white rounded-xl overflow-hidden border border-white/10 shadow-inner">
-      <div className="bg-gray-100 px-4 py-2 flex items-center justify-between text-xs text-gray-500 border-b">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span>Live Preview</span>
+  // React preview with Sandpack (best experience)
+  if (isReact && code) {
+    return (
+      <div className="h-full w-full rounded-xl overflow-hidden border border-white/10 bg-[#0a0d1f]">
+        <div className="bg-zinc-900 px-4 py-2 flex items-center justify-between text-xs border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+            <span className="font-medium text-emerald-400">Live React Preview</span>
+            <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded">Sandpack • Interactif</span>
+          </div>
+          <span className="text-white/40 text-[10px]">Floot-style</span>
         </div>
-        <span className="text-[10px]">Floot-like • Auto-refresh</span>
+        
+        <div className="h-[calc(100%-36px)]">
+          <Sandpack
+            template="react"
+            theme="dark"
+            options={{
+              showNavigator: false,
+              showTabs: false,
+              showLineNumbers: true,
+              showInlineErrors: true,
+              wrapContent: true,
+              editorHeight: '100%',
+            }}
+            files={{
+              '/App.tsx': code,
+              '/styles.css': `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+              
+              :root {
+                --font-sans: 'Inter', system-ui, sans-serif;
+              }
+              
+              body {
+                font-family: var(--font-sans);
+              }
+              
+              .card {
+                background: #18181b;
+                border: 1px solid #27272a;
+                border-radius: 12px;
+              }`,
+            }}
+            customSetup={{
+              dependencies: {
+                "lucide-react": "latest",
+                "framer-motion": "latest",
+                "clsx": "latest",
+                "tailwind-merge": "latest",
+              },
+            }}
+          />
+        </div>
       </div>
-      <iframe
-        srcDoc={previewHtml}
-        className="w-full h-[calc(100%-40px)] border-0"
-        title="Live Preview"
-        sandbox="allow-scripts allow-same-origin"
-      />
+    );
+  }
+
+  // HTML preview
+  return (
+    <div className="h-full w-full bg-white rounded-xl overflow-hidden border border-white/10 shadow-inner flex flex-col">
+      <div className="bg-zinc-900 px-4 py-2 flex items-center justify-between text-xs text-white/60 border-b border-white/10 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+          <span>Live HTML Preview</span>
+        </div>
+        <span className="text-[10px]">Tailwind • Instant</span>
+      </div>
+      
+      <div className="flex-1 overflow-hidden">
+        <iframe
+          srcDoc={previewHtml}
+          className="w-full h-full border-0"
+          title="Live Preview"
+          sandbox="allow-scripts allow-same-origin allow-forms"
+        />
+      </div>
     </div>
   );
 }

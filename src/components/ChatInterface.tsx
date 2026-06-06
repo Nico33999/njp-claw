@@ -1,23 +1,15 @@
-// Add import
-// import { FlootMode } from './FlootMode';
+// Replace any Floot references with NJP Builder
+// import { NJPBuilderMode } from './NJPBuilderMode';
 
-// Add state
-// const [flootMode, setFlootMode] = useState<string | null>(null);
+// const [njpBuilderMode, setNJPBuilderMode] = useState<string | null>(null);
 
-// In the UI, you can show <FlootMode onActivate={setFlootMode} /> when user clicks a button
-
-// When flootMode is active, append to system prompt:
-// if (flootMode === 'plan-build') {
-//   system += '\n\nMODE FLOOT PLAN+BUILD: Commence toujours par un plan étape par étape clair, puis construis itérativement. Montre le plan avant le code.';
+// When activating:
+// if (njpBuilderMode) {
+//   let extra = '';
+//   if (njpBuilderMode === 'plan-build') extra = '\n\nMODE NJP BUILDER - PLAN+BUILD: Commence toujours par un plan clair étape par étape, puis construis itérativement en montrant chaque étape.';
+//   if (njpBuilderMode === 'auto-fix') extra = '\n\nMODE NJP BUILDER - AUTO-FIX: Analyse le code pour les erreurs et propose des corrections automatiques.';
+//   if (njpBuilderMode === 'fullstack') extra = '\n\nMODE NJP BUILDER - FULL-STACK: Génère le schéma de base de données (Prisma), les routes API et l\'authentification.';
+//   if (njpBuilderMode === 'seo') extra = '\n\nMODE NJP BUILDER - SEO: Ajoute sitemap.xml, meta tags complets, structured data et recommandations SEO.';
+//   if (njpBuilderMode === 'one-click-deploy') extra = '\n\nMODE NJP BUILDER - DEPLOY: Prépare le projet pour un déploiement production sur Vercel avec toutes les configurations.';
+//   systemPrompt += extra;
 // }
-// if (flootMode === 'auto-fix') {
-//   system += '\n\nMODE AUTO-FIX: Après chaque génération, analyse le code pour les bugs et propose des corrections.';
-// }
-// if (flootMode === 'fullstack') {
-//   system += '\n\nMODE FULL-STACK: Génère toujours le schéma Prisma + routes API + authentification NextAuth.';
-// }
-// if (flootMode === 'seo') {
-//   system += '\n\nMODE SEO: Ajoute meta tags, sitemap.xml, robots.txt et structured data.';
-// }
-
-// Also add a "Fix this bug" button next to the preview that sends the current code back to AI with "Fix and improve this code".

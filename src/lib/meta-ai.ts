@@ -1,177 +1,90 @@
-export type ChatMessage = { role: 'user' | 'assistant' | 'system'; content: string }
+import { web_search } from './tools/web-search' // we'll create this
 
-// Model mapping: plan key → Groq model id
-const GROQ_MODELS: Record<string, string> = {
-  FREE: 'llama-3.1-8b-instant',
-  PRO: 'llama-3.1-70b-versatile',
-  ULTIMATE: 'llama-3.1-70b-versatile', // 405B not on Groq, 70B is the best available
+export type ChatMessage = { role: 'user' | 'assistant' | 'system' | 'tool'; content: string; tool_call_id?: string; name?: string }
+
+export type ToolCall = {
+  id: string
+  type: 'function'
+  function: { name: string; arguments: string }
 }
+
+// Available tools for the agent
+const AVAILABLE_TOOLS = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'web_search',
+      description: 'Recherche des informations précises et à jour sur internet. Utilise cette fonction quand tu as besoin d\'informations factuelles, actuelles ou de vérification.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'La requête de recherche précise' },
+          num_results: { type: 'number', description: 'Nombre de résultats (max 10)' }
+        },
+        required: ['query']
+      }
+    }
+  }
+]
 
 export async function chatWithMetaAI(
   messages: ChatMessage[],
-  model = 'meta-llama/Llama-3.1-8B-Instruct',
-  temperature = 0.7
+  enableTools = true
 ): Promise<string> {
-  // Determine which plan tier from the model string
-  const planKey = model.includes('405B') ? 'ULTIMATE' : model.includes('70B') ? 'PRO' : 'FREE'
-
-  const errors: string[] = []
-
-  // ── 1. Groq (gratuit, Llama 3.1, recommandé) ──────────────────
   const groqKey = process.env.GROQ_API_KEY
-  if (groqKey) {
-    try {
-      const groqModel = GROQ_MODELS[planKey] ?? GROQ_MODELS.FREE
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${groqKey}`,
-        },
-        body: JSON.stringify({
-          model: groqModel,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          max_tokens: 2048,
-          temperature,
-        }),
-        signal: AbortSignal.timeout(30000),
-      })
-      if (res.ok) {
-        const json = await res.json()
-        const content = json.choices?.[0]?.message?.content
-        if (content) return content
-      } else {
-        errors.push(`Groq: ${res.status} ${await res.text()}`)
-      }
-    } catch (e: any) {
-      errors.push(`Groq: ${e.message}`)
+  if (!groqKey) throw new Error('GROQ_API_KEY manquante')
+
+  const groqModel = 'llama-3.1-70b-versatile' // Best for tool calling
+
+  const body: any = {
+    model: groqModel,
+    messages: messages.map(m => ({ role: m.role, content: m.content })),
+    max_tokens: 4096,
+    temperature: 0.7,
+  }
+
+  if (enableTools) {
+    body.tools = AVAILABLE_TOOLS
+    body.tool_choice = 'auto'
+  }
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${groqKey}`,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) throw new Error(await res.text())
+
+  const json = await res.json()
+  const message = json.choices?.[0]?.message
+
+  // Handle tool calls
+  if (message?.tool_calls?.length > 0) {
+    const toolCall = message.tool_calls[0]
+    if (toolCall.function.name === 'web_search') {
+      const args = JSON.parse(toolCall.function.arguments)
+      const searchResults = await web_search(args.query, args.num_results || 8)
+      
+      // Add tool result and continue
+      const newMessages = [
+        ...messages,
+        { role: 'assistant' as const, content: message.content || '', tool_calls: message.tool_calls },
+        { role: 'tool' as const, content: searchResults, tool_call_id: toolCall.id, name: 'web_search' }
+      ]
+      return chatWithMetaAI(newMessages, false) // continue without tools to avoid loops
     }
   }
 
-  // ── 2. Together AI ─────────────────────────────────────────────
-  const togetherKey = process.env.TOGETHER_API_KEY
-  if (togetherKey) {
-    try {
-      const res = await fetch('https://api.together.xyz/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${togetherKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          max_tokens: 2048,
-          temperature,
-        }),
-        signal: AbortSignal.timeout(30000),
-      })
-      if (res.ok) {
-        const json = await res.json()
-        const content = json.choices?.[0]?.message?.content
-        if (content) return content
-      } else {
-        errors.push(`Together: ${res.status}`)
-      }
-    } catch (e: any) {
-      errors.push(`Together: ${e.message}`)
-    }
-  }
-
-  // ── 3. Ollama local ────────────────────────────────────────────
-  const ollamaUrl = process.env.OLLAMA_URL
-  if (ollamaUrl) {
-    try {
-      const res = await fetch(`${ollamaUrl}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: process.env.OLLAMA_MODEL ?? 'llama3.1',
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          stream: false,
-        }),
-        signal: AbortSignal.timeout(60000),
-      })
-      if (res.ok) {
-        const json = await res.json()
-        const content = json.message?.content
-        if (content) return content
-      } else {
-        errors.push(`Ollama: ${res.status}`)
-      }
-    } catch (e: any) {
-      errors.push(`Ollama: ${e.message}`)
-    }
-  }
-
-  // ── Aucun backend disponible ───────────────────────────────────
-  console.error('[meta-ai] All backends failed:', errors)
-  throw new Error(
-    errors.length
-      ? `Backends IA indisponibles (${errors.join(' | ')}). Configurez GROQ_API_KEY dans Vercel.`
-      : 'Aucune clé API IA configurée. Ajoutez GROQ_API_KEY dans les variables Vercel.'
-  )
+  return message?.content || 'Désolé, je n\'ai pas pu générer de réponse.'
 }
 
-// Streaming via Groq
-export async function* streamMetaAI(
-  messages: ChatMessage[],
-  model = 'meta-llama/Llama-3.1-8B-Instruct'
-): AsyncGenerator<string> {
-  const planKey = model.includes('405B') ? 'ULTIMATE' : model.includes('70B') ? 'PRO' : 'FREE'
-  const groqKey = process.env.GROQ_API_KEY
-
-  if (groqKey) {
-    try {
-      const groqModel = GROQ_MODELS[planKey] ?? GROQ_MODELS.FREE
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${groqKey}`,
-        },
-        body: JSON.stringify({
-          model: groqModel,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          max_tokens: 2048,
-          temperature: 0.7,
-          stream: true,
-        }),
-        signal: AbortSignal.timeout(60000),
-      })
-
-      if (res.ok && res.body) {
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() ?? ''
-
-          for (const line of lines) {
-            const trimmed = line.replace(/^data: /, '').trim()
-            if (!trimmed || trimmed === '[DONE]') continue
-            try {
-              const json = JSON.parse(trimmed)
-              const chunk = json.choices?.[0]?.delta?.content
-              if (chunk) yield chunk
-            } catch {
-              // skip
-            }
-          }
-        }
-        return
-      }
-    } catch {
-      // fall through to non-streaming
-    }
-  }
-
-  // Non-streaming fallback
-  const response = await chatWithMetaAI(messages, model)
-  yield response
+// Streaming version with tool support (simplified for now)
+export async function* streamMetaAI(messages: ChatMessage[]): AsyncGenerator<string> {
+  // For simplicity, use non-streaming with tools first, then stream final answer
+  const finalAnswer = await chatWithMetaAI(messages)
+  yield finalAnswer
 }
